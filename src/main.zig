@@ -3,6 +3,10 @@ const io = std.io;
 const mem = std.mem;
 
 pub fn main() !void {
+    // var gpa = std.heap.GeneralPurposeAllocator(.{ .verbose_log = true }){};
+    // defer _ = gpa.deinit();
+    // const gallocator = gpa.allocator();
+
     var args = std.process.args();
     _ = args.next(); // Skip program name
 
@@ -31,10 +35,10 @@ pub fn main() !void {
 
     var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
     defer arena.deinit();
-    const allocator = arena.allocator();
+    const aallocator = arena.allocator();
 
-    const env_map = try allocator.create(std.process.EnvMap);
-    env_map.* = try std.process.getEnvMap(allocator);
+    const env_map = try aallocator.create(std.process.EnvMap);
+    env_map.* = try std.process.getEnvMap(aallocator);
     defer env_map.deinit(); // technically unnecessary when using ArenaAllocator
 
     // iterate over env vars
@@ -43,5 +47,12 @@ pub fn main() !void {
         if (arg_verbose) {
             try stdout.print("{s}={s}\n", .{ env_var.key_ptr.*, env_var.value_ptr.* });
         }
+
+        var search_s = std.ArrayList(u8).init(aallocator);
+        defer search_s.deinit();
+        try search_s.append(arg_prefix);
+        try search_s.appendSlice(env_var.key_ptr.*);
+
+        try stdout.print("-> search: '{s}'\n", .{search_s.items});
     }
 }
