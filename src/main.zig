@@ -9,12 +9,6 @@ const ArrayList = std.ArrayList;
 const process = std.process;
 const ArenaAllocator = heap.ArenaAllocator;
 
-const ReducerItem = struct {
-    pos: usize,
-    len: usize,
-};
-// const ReducerList = ArrayList(ReducerItem);
-
 pub fn main() !void {
     var args = process.args();
     _ = args.next(); // Skip program name
