@@ -16,11 +16,6 @@ const ReducerItem = struct {
 // const ReducerList = ArrayList(ReducerItem);
 
 pub fn main() !void {
-    var gpa1 = heap.GeneralPurposeAllocator(.{}){};
-    defer _ = gpa1.deinit();
-    // const gpa = std.heap.page_allocator; // Speicher-Allocator
-    // defer gpa.deinit();
-
     var args = process.args();
     _ = args.next(); // Skip program name
 
@@ -40,9 +35,7 @@ pub fn main() !void {
 
     var stdin = io.getStdIn().reader();
     var stdout = io.getStdOut().writer();
-    // var stderr = io.getStdErr().writer();
 
-    // var input: [4096]u8 = undefined;
     var input = ArrayList(u8).init(std.heap.page_allocator);
     defer input.deinit();
     const input_s = try stdin.readAllArrayList(&input, 4096);
@@ -51,15 +44,12 @@ pub fn main() !void {
     // var output = ArrayList(u8).init(std.heap.page_allocator);
 
     var arena = ArenaAllocator.init(std.heap.page_allocator);
-    // var arena = ArenaAllocator.init(heap.page_allocator);
     defer arena.deinit();
     const aallocator = arena.allocator();
 
     const env_map = try aallocator.create(process.EnvMap);
     defer env_map.deinit(); // technically unnecessary when using ArenaAllocator
     env_map.* = try process.getEnvMap(aallocator);
-
-    print("env_map type={}\n", .{@TypeOf(env_map)});
 
     // Iterate over env vars.
     var env_it = env_map.iterator();
@@ -112,12 +102,10 @@ pub fn main() !void {
 }
 
 fn replaceInArraylist(input: *ArrayList(u8), search: *ArrayList(u8), replace: []const u8) !bool {
-    // print("-> replaceInArraylist: '{s}'->'{s}'\n", .{ search.items, replace });
     const pos = mem.indexOf(u8, input.items, search.items);
     if (pos == null)
         return false;
     const pos_unwrapped = pos.?;
-    // print("-> pos: {any}\n", .{pos_unwrapped});
 
     if (search.items.len == replace.len) {
         // '$HELLO' replaced by 'WORLDX'
@@ -125,15 +113,11 @@ fn replaceInArraylist(input: *ArrayList(u8), search: *ArrayList(u8), replace: []
     } else if (search.items.len > replace.len) {
         // '$HELLO' replaced by 'WORD'
         const diff: usize = search.items.len - replace.len;
-        // print("diff: {}\n", .{diff});
-
         try input.replaceRange(pos_unwrapped, replace.len, replace);
         input.replaceRangeAssumeCapacity(pos_unwrapped + replace.len, diff, &.{});
     } else {
         // '$HELLO' replaced by 'HELLO WORLD'
         const diff: usize = replace.len - search.items.len;
-        // print("diff: {}\n", .{diff});
-
         _ = try input.addManyAt(pos_unwrapped + search.items.len, diff);
         try input.replaceRange(pos_unwrapped, replace.len, replace);
     }
