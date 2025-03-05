@@ -1,5 +1,6 @@
 /.zig-cache/
 /tmp/
+/zig-out/
 /build/
 /main
 /main.o
