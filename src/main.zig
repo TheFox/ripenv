@@ -38,10 +38,7 @@ pub fn main() !void {
 
     var input = ArrayList(u8).init(std.heap.page_allocator);
     defer input.deinit();
-    const input_s = try stdin.readAllArrayList(&input, 4096);
-    print("input size: {}\n", .{input_s});
-
-    // var output = ArrayList(u8).init(std.heap.page_allocator);
+    try stdin.readAllArrayList(&input, 4096);
 
     var arena = ArenaAllocator.init(std.heap.page_allocator);
     defer arena.deinit();
@@ -54,10 +51,6 @@ pub fn main() !void {
     // Iterate over env vars.
     var env_it = env_map.iterator();
     while (env_it.next()) |env_var| {
-        if (arg_verbose) {
-            print("{s}={s}\n", .{ env_var.key_ptr.*, env_var.value_ptr.* });
-        }
-
         if (arg_prefix == '$') {
             {
                 var search_s = ArrayList(u8).init(aallocator);
@@ -66,8 +59,8 @@ pub fn main() !void {
                 try search_s.appendSlice(env_var.key_ptr.*);
 
                 const did_something = try replaceInArraylist(&input, &search_s, env_var.value_ptr.*);
-                if (did_something) {
-                    print("-> found A: '{s}'\n", .{search_s.items});
+                if (arg_verbose and did_something) {
+                    print("found A: '{s}'\n", .{search_s.items});
                 }
             }
 
@@ -80,8 +73,8 @@ pub fn main() !void {
                 try search_s.append('}');
 
                 const did_something = try replaceInArraylist(&input, &search_s, env_var.value_ptr.*);
-                if (did_something) {
-                    print("-> found B: '{s}'\n", .{search_s.items});
+                if (arg_verbose and did_something) {
+                    print("found B: '{s}'\n", .{search_s.items});
                 }
             }
         } else {
@@ -92,8 +85,8 @@ pub fn main() !void {
             try search_s.append(arg_prefix);
 
             const did_something = try replaceInArraylist(&input, &search_s, env_var.value_ptr.*);
-            if (did_something) {
-                print("-> found B: '{s}'\n", .{search_s.items});
+            if (arg_verbose and did_something) {
+                print("found C: '{s}'\n", .{search_s.items});
             }
         }
     }
