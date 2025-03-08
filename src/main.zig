@@ -89,24 +89,21 @@ pub fn main() !void {
 }
 
 fn replaceInArraylist(input: *ArrayList(u8), search: *ArrayList(u8), replace: []const u8) !bool {
-    const pos = mem.indexOf(u8, input.items, search.items);
-    if (pos == null)
-        return false;
-    const pos_unwrapped = pos.?;
+    const pos = mem.indexOf(u8, input.items, search.items) orelse return false;
 
     if (search.items.len == replace.len) {
         // '$HELLO' replaced by 'WORLDX'
-        input.replaceRangeAssumeCapacity(pos_unwrapped, search.items.len, replace);
+        input.replaceRangeAssumeCapacity(pos, search.items.len, replace);
     } else if (search.items.len > replace.len) {
         // '$HELLO' replaced by 'WORD'
         const diff: usize = search.items.len - replace.len;
-        try input.replaceRange(pos_unwrapped, replace.len, replace);
-        input.replaceRangeAssumeCapacity(pos_unwrapped + replace.len, diff, &.{});
+        try input.replaceRange(pos, replace.len, replace);
+        input.replaceRangeAssumeCapacity(pos + replace.len, diff, &.{});
     } else {
         // '$HELLO' replaced by 'HELLO WORLD'
         const diff: usize = replace.len - search.items.len;
-        _ = try input.addManyAt(pos_unwrapped + search.items.len, diff);
-        try input.replaceRange(pos_unwrapped, replace.len, replace);
+        _ = try input.addManyAt(pos + search.items.len, diff);
+        try input.replaceRange(pos, replace.len, replace);
     }
     return true;
 }
