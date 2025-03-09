@@ -52,9 +52,12 @@ pub fn main() !void {
                 try search_s.append(arg_prefix);
                 try search_s.appendSlice(env_var.key_ptr.*);
 
-                const did_something = try replaceInArraylist(&input, &search_s, env_var.value_ptr.*);
-                if (arg_verbose and did_something) {
-                    print("found A: '{s}'\n", .{search_s.items});
+                var did_something = true;
+                while (did_something) {
+                    did_something = try replaceInArraylist(&input, &search_s, env_var.value_ptr.*);
+                    if (arg_verbose and did_something) {
+                        print("found A: '{s}'\n", .{search_s.items});
+                    }
                 }
             }
 
@@ -66,9 +69,12 @@ pub fn main() !void {
                 try search_s.appendSlice(env_var.key_ptr.*);
                 try search_s.append('}');
 
-                const did_something = try replaceInArraylist(&input, &search_s, env_var.value_ptr.*);
-                if (arg_verbose and did_something) {
-                    print("found B: '{s}'\n", .{search_s.items});
+                var did_something = true;
+                while (did_something) {
+                    did_something = try replaceInArraylist(&input, &search_s, env_var.value_ptr.*);
+                    if (arg_verbose and did_something) {
+                        print("found B: '{s}'\n", .{search_s.items});
+                    }
                 }
             }
         } else {
@@ -78,9 +84,12 @@ pub fn main() !void {
             try search_s.appendSlice(env_var.key_ptr.*);
             try search_s.append(arg_prefix);
 
-            const did_something = try replaceInArraylist(&input, &search_s, env_var.value_ptr.*);
-            if (arg_verbose and did_something) {
-                print("found C: '{s}'\n", .{search_s.items});
+            var did_something = true;
+            while (did_something) {
+                did_something = try replaceInArraylist(&input, &search_s, env_var.value_ptr.*);
+                if (arg_verbose and did_something) {
+                    print("found C: '{s}'\n", .{search_s.items});
+                }
             }
         }
     }
@@ -121,7 +130,7 @@ test "strInStr" {
         try expect(result == 6);
 }
 
-test "replaceInArraylist1" {
+test "replaceInArraylist1a" {
     var input = ArrayList(u8).init(std.heap.page_allocator);
     defer input.deinit();
     try input.appendSlice("START'$HELLO'END");
@@ -135,6 +144,38 @@ test "replaceInArraylist1" {
     const did_something = try replaceInArraylist(&input, &search, replace);
     try expect(did_something);
     try expect(mem.eql(u8, input.items, "START'WORLDX'END"));
+}
+
+test "replaceInArraylist1b" {
+    var input = ArrayList(u8).init(std.heap.page_allocator);
+    defer input.deinit();
+    try input.appendSlice("START'$HELLO''$HELLO'END");
+
+    var search = ArrayList(u8).init(std.heap.page_allocator);
+    defer search.deinit();
+    try search.appendSlice("$HELLO");
+
+    const replace: []const u8 = "WORLDX";
+
+    const did_something = try replaceInArraylist(&input, &search, replace);
+    try expect(did_something);
+    try expect(mem.eql(u8, input.items, "START'WORLDX''WORLDX'END"));
+}
+
+test "replaceInArraylist1c" {
+    var input = ArrayList(u8).init(std.heap.page_allocator);
+    defer input.deinit();
+    try input.appendSlice("START'${HELLO}''${HELLO}'END");
+
+    var search = ArrayList(u8).init(std.heap.page_allocator);
+    defer search.deinit();
+    try search.appendSlice("${HELLO}");
+
+    const replace: []const u8 = "WORLDX";
+
+    const did_something = try replaceInArraylist(&input, &search, replace);
+    try expect(did_something);
+    try expect(mem.eql(u8, input.items, "START'WORLDX''WORLDX'END"));
 }
 
 test "replaceInArraylist2" {
