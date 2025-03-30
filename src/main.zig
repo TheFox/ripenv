@@ -36,18 +36,18 @@ pub fn main() !void {
 
     var arena = ArenaAllocator.init(std.heap.page_allocator);
     defer arena.deinit();
-    const aallocator = arena.allocator();
+    const allocator = arena.allocator();
 
-    const env_map = try aallocator.create(process.EnvMap);
-    defer env_map.deinit(); // technically unnecessary when using ArenaAllocator
-    env_map.* = try process.getEnvMap(aallocator);
+    const env_map = try allocator.create(process.EnvMap);
+    defer env_map.deinit();
+    env_map.* = try process.getEnvMap(allocator);
 
     // Iterate over env vars.
     var env_it = env_map.iterator();
     while (env_it.next()) |env_var| {
         if (arg_prefix == '$') {
             {
-                var search_s = ArrayList(u8).init(aallocator);
+                var search_s = ArrayList(u8).init(allocator);
                 defer search_s.deinit();
                 try search_s.append(arg_prefix);
                 try search_s.appendSlice(env_var.key_ptr.*);
@@ -62,7 +62,7 @@ pub fn main() !void {
             }
 
             {
-                var search_s = ArrayList(u8).init(aallocator);
+                var search_s = ArrayList(u8).init(allocator);
                 defer search_s.deinit();
                 try search_s.append(arg_prefix);
                 try search_s.append('{');
@@ -78,7 +78,7 @@ pub fn main() !void {
                 }
             }
         } else {
-            var search_s = ArrayList(u8).init(aallocator);
+            var search_s = ArrayList(u8).init(allocator);
             defer search_s.deinit();
             try search_s.append(arg_prefix);
             try search_s.appendSlice(env_var.key_ptr.*);
