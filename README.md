@@ -1,5 +1,13 @@
 # RIP envsubst
 
+## Installation
+
+Use the following `zig fetch` command:
+
+```sh
+zig fetch --save git+https://github.com/TheFox/ripenv
+```
+
 ## Dev
 
 ```bash
