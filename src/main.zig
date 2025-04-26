@@ -1,25 +1,27 @@
 const std = @import("std");
 const io = std.io;
-const mem = std.mem;
-const memcpy = mem.copyForwards;
-const heap = std.heap;
+const memcpy = std.mem.copyForwards;
+const eql = std.mem.eql;
+const indexOf = std.mem.indexOf;
 const print = std.debug.print;
 const expect = std.testing.expect;
 const ArrayList = std.ArrayList;
 const process = std.process;
-const ArenaAllocator = heap.ArenaAllocator;
+const ArenaAllocator = std.heap.ArenaAllocator;
 
 pub fn main() !void {
     var args = process.args();
     _ = args.next(); // Skip program name
 
-    var arg_verbose: bool = false;
+    var arg_verbose: u8 = 0;
     var arg_prefix: u8 = '$';
     while (args.next()) |arg| {
-        if (mem.eql(u8, arg, "-v")) {
-            arg_verbose = true;
-        }
-        if (mem.eql(u8, arg, "-c")) {
+        if (eql(u8, arg, "-h") or eql(u8, arg, "--help")) {
+            try print_help();
+            return;
+        } else if (eql(u8, arg, "-v")) {
+            arg_verbose = 1;
+        } else if (eql(u8, arg, "-c")) {
             if (args.next()) |char| {
                 if (char.len == 1)
                     arg_prefix = char[0];
@@ -29,6 +31,7 @@ pub fn main() !void {
 
     var stdin = io.getStdIn().reader();
     var stdout = io.getStdOut().writer();
+    var stderr = io.getStdErr().writer();
 
     var input = ArrayList(u8).init(std.heap.page_allocator);
     defer input.deinit();
@@ -55,8 +58,8 @@ pub fn main() !void {
                 var did_something = true;
                 while (did_something) {
                     did_something = try replaceInArraylist(&input, &search_s, env_var.value_ptr.*);
-                    if (arg_verbose and did_something) {
-                        print("found A: '{s}'\n", .{search_s.items});
+                    if (arg_verbose >= 1 and did_something) {
+                        try stderr.print("found A: '{s}'\n", .{search_s.items});
                     }
                 }
             }
@@ -72,8 +75,8 @@ pub fn main() !void {
                 var did_something = true;
                 while (did_something) {
                     did_something = try replaceInArraylist(&input, &search_s, env_var.value_ptr.*);
-                    if (arg_verbose and did_something) {
-                        print("found B: '{s}'\n", .{search_s.items});
+                    if (arg_verbose >= 1 and did_something) {
+                        try stderr.print("found B: '{s}'\n", .{search_s.items});
                     }
                 }
             }
@@ -87,8 +90,8 @@ pub fn main() !void {
             var did_something = true;
             while (did_something) {
                 did_something = try replaceInArraylist(&input, &search_s, env_var.value_ptr.*);
-                if (arg_verbose and did_something) {
-                    print("found C: '{s}'\n", .{search_s.items});
+                if (arg_verbose >= 1 and did_something) {
+                    try stderr.print("found C: '{s}'\n", .{search_s.items});
                 }
             }
         }
@@ -98,7 +101,7 @@ pub fn main() !void {
 }
 
 fn replaceInArraylist(input: *ArrayList(u8), search: *ArrayList(u8), replace: []const u8) !bool {
-    const pos = mem.indexOf(u8, input.items, search.items) orelse return false;
+    const pos = indexOf(u8, input.items, search.items) orelse return false;
 
     if (search.items.len == replace.len) {
         // '$HELLO' replaced by 'WORLDX'
@@ -117,6 +120,18 @@ fn replaceInArraylist(input: *ArrayList(u8), search: *ArrayList(u8), replace: []
     return true;
 }
 
+fn print_help() !void {
+    var stdout = std.io.getStdErr().writer();
+
+    const help =
+        \\Usage: ripenv [-h|--help] < input_template > output_file
+        \\
+        \\Options:
+        \\-h, --help         Print this help.
+    ;
+    try stdout.print(help ++ "\n", .{});
+}
+
 test "strings" {
     const john = "John";
     print("john={s} len={} type={}\n", .{ john, john.len, @TypeOf(john) });
@@ -125,7 +140,7 @@ test "strings" {
 test "strInStr" {
     const haystack = "hello world";
     const needle = "world";
-    const result = mem.indexOf(u8, haystack, needle);
+    const result = indexOf(u8, haystack, needle);
     if (result != null)
         try expect(result == 6);
 }
@@ -143,7 +158,7 @@ test "replaceInArraylist1a" {
 
     const did_something = try replaceInArraylist(&input, &search, replace);
     try expect(did_something);
-    try expect(mem.eql(u8, input.items, "START'WORLDX'END"));
+    try expect(eql(u8, input.items, "START'WORLDX'END"));
 }
 
 test "replaceInArraylist1b" {
@@ -159,7 +174,7 @@ test "replaceInArraylist1b" {
 
     const did_something = try replaceInArraylist(&input, &search, replace);
     try expect(did_something);
-    try expect(mem.eql(u8, input.items, "START'WORLDX''WORLDX'END"));
+    try expect(eql(u8, input.items, "START'WORLDX''WORLDX'END"));
 }
 
 test "replaceInArraylist1c" {
@@ -175,7 +190,7 @@ test "replaceInArraylist1c" {
 
     const did_something = try replaceInArraylist(&input, &search, replace);
     try expect(did_something);
-    try expect(mem.eql(u8, input.items, "START'WORLDX''WORLDX'END"));
+    try expect(eql(u8, input.items, "START'WORLDX''WORLDX'END"));
 }
 
 test "replaceInArraylist2" {
@@ -191,7 +206,7 @@ test "replaceInArraylist2" {
 
     const did_something = try replaceInArraylist(&input, &search, replace);
     try expect(did_something);
-    try expect(mem.eql(u8, input.items, "START'WORd'END"));
+    try expect(eql(u8, input.items, "START'WORd'END"));
 }
 
 test "replaceInArraylist3" {
@@ -207,5 +222,5 @@ test "replaceInArraylist3" {
 
     const did_something = try replaceInArraylist(&input, &search, replace);
     try expect(did_something);
-    try expect(mem.eql(u8, input.items, "START'A New World Order'END"));
+    try expect(eql(u8, input.items, "START'A New World Order'END"));
 }
