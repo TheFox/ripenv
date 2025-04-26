@@ -19,7 +19,7 @@ pub fn main() !void {
         if (eql(u8, arg, "-h") or eql(u8, arg, "--help")) {
             try print_help();
             return;
-        } else if (eql(u8, arg, "-v")) {
+        } else if (eql(u8, arg, "-v") or eql(u8, arg, "--verbose")) {
             arg_verbose = 1;
         } else if (eql(u8, arg, "-c")) {
             if (args.next()) |char| {
@@ -124,10 +124,11 @@ fn print_help() !void {
     var stdout = std.io.getStdErr().writer();
 
     const help =
-        \\Usage: ripenv [-h|--help] < input_template > output_file
+        \\Usage: ripenv [-h|--help] [-v] < input_template > output_file
         \\
         \\Options:
-        \\-h, --help         Print this help.
+        \\-h, --help           Print this help.
+        \\-v, --verbose        Verbose output.
     ;
     try stdout.print(help ++ "\n", .{});
 }
