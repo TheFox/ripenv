@@ -1,4 +1,4 @@
-name: SynFlood
+name: ripenv
 
 on:
   push:
