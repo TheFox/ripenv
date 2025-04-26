@@ -30,4 +30,4 @@ jobs:
         run: zig build
 
       - name: Check help
-        run: ./zig-out/bin/ripenv --help
+        run: ./zig-out/bin/ripenv-x86_64-linux --help
