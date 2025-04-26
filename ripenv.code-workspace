@@ -8,10 +8,18 @@
 			{
 				"label": "Build",
 				"type": "shell",
-				"command": "zig build --summary all --release small",
+				"command": "zig build --verbose --summary all --release=small",
 				"group": {
 					"kind": "build",
 					"isDefault": true
+				}
+			}, {
+				"label": "Test",
+				"type": "shell",
+				"command": "zig build test --verbose --summary all",
+				"group": {
+					"kind": "build",
+					"isDefault": false
 				}
 			}
 		]
