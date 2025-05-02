@@ -30,4 +30,4 @@ jobs:
         run: zig build --release -Dci=true
 
       - name: Check help
-        run: ./zig-out/bin/ripenv-x86_64-linux --help
+        run: ./zig-out/bin/ripenv --help
