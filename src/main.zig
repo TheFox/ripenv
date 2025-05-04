@@ -17,7 +17,7 @@ pub fn main() !void {
     var arg_prefix: u8 = '$';
     while (args.next()) |arg| {
         if (eql(u8, arg, "-h") or eql(u8, arg, "--help")) {
-            try print_help();
+            try printHelp();
             return;
         } else if (eql(u8, arg, "-v") or eql(u8, arg, "--verbose")) {
             arg_verbose = 1;
@@ -120,9 +120,7 @@ fn replaceInArraylist(input: *ArrayList(u8), search: *ArrayList(u8), replace: []
     return true;
 }
 
-fn print_help() !void {
-    var stdout = std.io.getStdErr().writer();
-
+fn printHelp() !void {
     const help =
         \\Usage: ripenv [-h|--help] [-v] < input_template > output_file
         \\
@@ -130,6 +128,8 @@ fn print_help() !void {
         \\-h, --help           Print this help.
         \\-v, --verbose        Verbose output.
     ;
+
+    var stdout = std.io.getStdErr().writer();
     try stdout.print(help ++ "\n", .{});
 }
 
