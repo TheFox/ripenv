@@ -1,6 +1,6 @@
 # ripenv — R.I.P. envsubst
 
-ripenv is a tool for injecting environment variables into templates — inspired by the name of ripgrep. It supports the same variable syntax and can be used as a drop-in replacement in most shell scripts.
+A tool for injecting environment variables into templates — inspired by the name of ripgrep. It supports the same variable syntax and can be used as a drop-in replacement in most shell scripts.
 
 ## Installation
 

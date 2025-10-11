@@ -1,15 +1,33 @@
 const std = @import("std");
-const io = std.io;
+const File = std.fs.File;
+const Writer = std.Io.Writer;
 const memcpy = std.mem.copyForwards;
 const eql = std.mem.eql;
 const indexOf = std.mem.indexOf;
 const print = std.debug.print;
 const expect = std.testing.expect;
-const ArrayList = std.ArrayList;
 const process = std.process;
+const ArrayList = std.ArrayList;
+const Allocator = std.mem.Allocator;
 const ArenaAllocator = std.heap.ArenaAllocator;
 
 pub fn main() !void {
+    var arena = ArenaAllocator.init(std.heap.page_allocator);
+    defer arena.deinit();
+    const allocator = arena.allocator();
+
+    var stdin_buffer: [1024]u8 = undefined;
+    var stdin_reader = File.stdin().reader(&stdin_buffer);
+    const stdin = &stdin_reader.interface;
+
+    var stdout_buffer: [1024]u8 = undefined;
+    var stdout_writer = File.stdout().writer(&stdout_buffer);
+    const stdout = &stdout_writer.interface;
+
+    var stderr_buffer: [1024]u8 = undefined;
+    var stderr_writer = File.stderr().writer(&stderr_buffer);
+    const stderr = &stderr_writer.interface;
+
     var args = process.args();
     _ = args.next(); // Skip program name
 
@@ -17,7 +35,7 @@ pub fn main() !void {
     var arg_prefix: u8 = '$';
     while (args.next()) |arg| {
         if (eql(u8, arg, "-h") or eql(u8, arg, "--help")) {
-            try printHelp();
+            try printHelp(stdout);
             return;
         } else if (eql(u8, arg, "-v") or eql(u8, arg, "--verbose")) {
             arg_verbose = 1;
@@ -29,17 +47,14 @@ pub fn main() !void {
         }
     }
 
-    var stdin = io.getStdIn().reader();
-    var stdout = io.getStdOut().writer();
-    var stderr = io.getStdErr().writer();
+    const input_b = try allocator.alloc(u8, 1024);
+    defer allocator.free(input_b);
 
-    var input = ArrayList(u8).init(std.heap.page_allocator);
-    defer input.deinit();
-    try stdin.readAllArrayList(&input, 4096);
+    const input_l = try stdin.readSliceShort(input_b);
 
-    var arena = ArenaAllocator.init(std.heap.page_allocator);
-    defer arena.deinit();
-    const allocator = arena.allocator();
+    var input = try ArrayList(u8).initCapacity(allocator, 1024);
+    defer input.deinit(allocator);
+    try input.appendSlice(allocator, input_b[0..input_l]);
 
     const env_map = try allocator.create(process.EnvMap);
     defer env_map.deinit();
@@ -50,14 +65,14 @@ pub fn main() !void {
     while (env_it.next()) |env_var| {
         if (arg_prefix == '$') {
             {
-                var search_s = ArrayList(u8).init(allocator);
-                defer search_s.deinit();
-                try search_s.append(arg_prefix);
-                try search_s.appendSlice(env_var.key_ptr.*);
+                var search_s = try ArrayList(u8).initCapacity(allocator, 1024);
+                defer search_s.deinit(allocator);
+                try search_s.append(allocator, arg_prefix);
+                try search_s.appendSlice(allocator, env_var.key_ptr.*);
 
                 var did_something = true;
                 while (did_something) {
-                    did_something = try replaceInArraylist(&input, &search_s, env_var.value_ptr.*);
+                    did_something = try replaceInArraylist(allocator, &input, &search_s, env_var.value_ptr.*);
                     if (arg_verbose >= 1 and did_something) {
                         try stderr.print("found A: '{s}'\n", .{search_s.items});
                     }
@@ -65,31 +80,31 @@ pub fn main() !void {
             }
 
             {
-                var search_s = ArrayList(u8).init(allocator);
-                defer search_s.deinit();
-                try search_s.append(arg_prefix);
-                try search_s.append('{');
-                try search_s.appendSlice(env_var.key_ptr.*);
-                try search_s.append('}');
+                var search_s = try ArrayList(u8).initCapacity(allocator, 1024);
+                defer search_s.deinit(allocator);
+                try search_s.append(allocator, arg_prefix);
+                try search_s.append(allocator, '{');
+                try search_s.appendSlice(allocator, env_var.key_ptr.*);
+                try search_s.append(allocator, '}');
 
                 var did_something = true;
                 while (did_something) {
-                    did_something = try replaceInArraylist(&input, &search_s, env_var.value_ptr.*);
+                    did_something = try replaceInArraylist(allocator, &input, &search_s, env_var.value_ptr.*);
                     if (arg_verbose >= 1 and did_something) {
                         try stderr.print("found B: '{s}'\n", .{search_s.items});
                     }
                 }
             }
         } else {
-            var search_s = ArrayList(u8).init(allocator);
-            defer search_s.deinit();
-            try search_s.append(arg_prefix);
-            try search_s.appendSlice(env_var.key_ptr.*);
-            try search_s.append(arg_prefix);
+            var search_s = try ArrayList(u8).initCapacity(allocator, 1024);
+            defer search_s.deinit(allocator);
+            try search_s.append(allocator, arg_prefix);
+            try search_s.appendSlice(allocator, env_var.key_ptr.*);
+            try search_s.append(allocator, arg_prefix);
 
             var did_something = true;
             while (did_something) {
-                did_something = try replaceInArraylist(&input, &search_s, env_var.value_ptr.*);
+                did_something = try replaceInArraylist(allocator, &input, &search_s, env_var.value_ptr.*);
                 if (arg_verbose >= 1 and did_something) {
                     try stderr.print("found C: '{s}'\n", .{search_s.items});
                 }
@@ -100,7 +115,7 @@ pub fn main() !void {
     try stdout.writeAll(input.items);
 }
 
-fn replaceInArraylist(input: *ArrayList(u8), search: *ArrayList(u8), replace: []const u8) !bool {
+fn replaceInArraylist(allocator: Allocator, input: *ArrayList(u8), search: *ArrayList(u8), replace: []const u8) !bool {
     const pos = indexOf(u8, input.items, search.items) orelse return false;
 
     if (search.items.len == replace.len) {
@@ -109,18 +124,18 @@ fn replaceInArraylist(input: *ArrayList(u8), search: *ArrayList(u8), replace: []
     } else if (search.items.len > replace.len) {
         // '$HELLO' replaced by 'WORD'
         const diff: usize = search.items.len - replace.len;
-        try input.replaceRange(pos, replace.len, replace);
+        try input.replaceRange(allocator, pos, replace.len, replace);
         input.replaceRangeAssumeCapacity(pos + replace.len, diff, &.{});
     } else {
         // '$HELLO' replaced by 'HELLO WORLD'
         const diff: usize = replace.len - search.items.len;
-        _ = try input.addManyAt(pos + search.items.len, diff);
-        try input.replaceRange(pos, replace.len, replace);
+        _ = try input.addManyAt(allocator, pos + search.items.len, diff);
+        try input.replaceRange(allocator, pos, replace.len, replace);
     }
     return true;
 }
 
-fn printHelp() !void {
+fn printHelp(stdout: *Writer) !void {
     const help =
         \\Usage: ripenv [-h|--help] [-v] < input_template > output_file
         \\
@@ -128,9 +143,8 @@ fn printHelp() !void {
         \\-h, --help           Print this help.
         \\-v, --verbose        Verbose output.
     ;
-
-    var stdout = std.io.getStdErr().writer();
     try stdout.print(help ++ "\n", .{});
+    try stdout.flush();
 }
 
 test "strings" {

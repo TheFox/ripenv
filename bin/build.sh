@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 
-for target in aarch64-macos x86_64-linux ; do
-    echo "-> target: ${target}"
-    zig build --verbose --summary all --release=small -Dtarget=${target}
+for cpu in $(seq 1 3) ; do
+    zig build --verbose --summary all --release -Dtarget=aarch64-macos -Dcpu=apple_m${cpu}
 done
+
+zig build --verbose --summary all --release -Dtarget=x86_64-linux -Dcpu=x86_64
