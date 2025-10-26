@@ -5,7 +5,6 @@ const process = std.process;
 const ArrayList = std.ArrayList;
 const Allocator = std.mem.Allocator;
 const ArenaAllocator = std.heap.ArenaAllocator;
-const memcpy = std.mem.copyForwards;
 const eql = std.mem.eql;
 const indexOf = std.mem.indexOf;
 const print = std.debug.print;
@@ -74,16 +73,19 @@ pub fn main() !void {
     // Iterate over env vars.
     var env_it = env_map.iterator();
     while (env_it.next()) |env_var| {
+        const env_key = env_var.key_ptr.*;
+        const env_val = env_var.value_ptr.*;
+
         if (arg_prefix == '$') {
             {
                 var search_s = try ArrayList(u8).initCapacity(allocator, arg_buffer_size);
                 defer search_s.deinit(allocator);
                 try search_s.append(allocator, arg_prefix);
-                try search_s.appendSlice(allocator, env_var.key_ptr.*);
+                try search_s.appendSlice(allocator, env_key);
 
                 var did_something = true;
                 while (did_something) {
-                    did_something = try replaceInArraylist(allocator, &input, &search_s, env_var.value_ptr.*);
+                    did_something = try replaceInArraylist(allocator, &input, &search_s, env_val);
                     if (arg_verbose >= 1 and did_something) {
                         try stderr.print("found A: '{s}'\n", .{search_s.items});
                         try stderr.flush();
@@ -96,12 +98,12 @@ pub fn main() !void {
                 defer search_s.deinit(allocator);
                 try search_s.append(allocator, arg_prefix);
                 try search_s.append(allocator, '{');
-                try search_s.appendSlice(allocator, env_var.key_ptr.*);
+                try search_s.appendSlice(allocator, env_key);
                 try search_s.append(allocator, '}');
 
                 var did_something = true;
                 while (did_something) {
-                    did_something = try replaceInArraylist(allocator, &input, &search_s, env_var.value_ptr.*);
+                    did_something = try replaceInArraylist(allocator, &input, &search_s, env_val);
                     if (arg_verbose >= 1 and did_something) {
                         try stderr.print("found B: '{s}'\n", .{search_s.items});
                         try stderr.flush();
@@ -112,12 +114,12 @@ pub fn main() !void {
             var search_s = try ArrayList(u8).initCapacity(allocator, arg_buffer_size);
             defer search_s.deinit(allocator);
             try search_s.append(allocator, arg_prefix);
-            try search_s.appendSlice(allocator, env_var.key_ptr.*);
+            try search_s.appendSlice(allocator, env_key);
             try search_s.append(allocator, arg_prefix);
 
             var did_something = true;
             while (did_something) {
-                did_something = try replaceInArraylist(allocator, &input, &search_s, env_var.value_ptr.*);
+                did_something = try replaceInArraylist(allocator, &input, &search_s, env_val);
                 if (arg_verbose >= 1 and did_something) {
                     try stderr.print("found C: '{s}'\n", .{search_s.items});
                     try stderr.flush();
@@ -130,22 +132,21 @@ pub fn main() !void {
     try stdout.flush();
 }
 
-fn replaceInArraylist(allocator: Allocator, input: *ArrayList(u8), search: *ArrayList(u8), replace: []const u8) !bool {
+fn replaceInArraylist(allocator: Allocator, input: *ArrayList(u8), search: *ArrayList(u8), replace_s: []const u8) !bool {
     const pos = indexOf(u8, input.items, search.items) orelse return false;
-
-    if (search.items.len == replace.len) {
+    if (search.items.len == replace_s.len) {
         // '$HELLO' (6) replaced by 'WORLDX' (6)
-        input.replaceRangeAssumeCapacity(pos, search.items.len, replace);
-    } else if (search.items.len > replace.len) {
+        input.replaceRangeAssumeCapacity(pos, search.items.len, replace_s);
+    } else if (search.items.len > replace_s.len) {
         // '$HELLO' (6) replaced by 'WORD' (4)
-        const diff: usize = search.items.len - replace.len;
-        try input.replaceRange(allocator, pos, replace.len, replace);
-        input.replaceRangeAssumeCapacity(pos + replace.len, diff, &.{});
+        const diff: usize = search.items.len - replace_s.len;
+        try input.replaceRange(allocator, pos, replace_s.len, replace_s);
+        input.replaceRangeAssumeCapacity(pos + replace_s.len, diff, &.{});
     } else {
         // '$HELLO' (6) replaced by 'HELLO WORLD' (11)
-        const diff: usize = replace.len - search.items.len;
+        const diff: usize = replace_s.len - search.items.len;
         _ = try input.addManyAt(allocator, pos + search.items.len, diff);
-        try input.replaceRange(allocator, pos, replace.len, replace);
+        try input.replaceRange(allocator, pos, replace_s.len, replace_s);
     }
     return true;
 }
@@ -179,13 +180,11 @@ test "replace1a" {
     defer input.deinit(allocator);
     try input.appendSlice(allocator, "START'$HELLO'END");
 
-    var search = try ArrayList(u8).initCapacity(allocator, 1024);
-    defer search.deinit(allocator);
-    try search.appendSlice(allocator, "$HELLO");
+    var search_s = try ArrayList(u8).initCapacity(allocator, 1024);
+    defer search_s.deinit(allocator);
+    try search_s.appendSlice(allocator, "$HELLO");
 
-    const replace: []const u8 = "WORLDX";
-
-    const did_something = try replaceInArraylist(allocator, &input, &search, replace);
+    const did_something = try replaceInArraylist(allocator, &input, &search_s, "WORLDX");
     try expect(did_something);
     try expect(eql(u8, input.items, "START'WORLDX'END"));
 }
@@ -197,17 +196,17 @@ test "replace1b" {
     defer input.deinit(allocator);
     try input.appendSlice(allocator, "START'$HELLO''$HELLO'END");
 
-    var search = try ArrayList(u8).initCapacity(allocator, 1024);
-    defer search.deinit(allocator);
-    try search.appendSlice(allocator, "$HELLO");
+    var search_s = try ArrayList(u8).initCapacity(allocator, 1024);
+    defer search_s.deinit(allocator);
+    try search_s.appendSlice(allocator, "$HELLO");
 
     {
-        const did_something = try replaceInArraylist(allocator, &input, &search, "WORLDX");
+        const did_something = try replaceInArraylist(allocator, &input, &search_s, "WORLDX");
         try expect(did_something);
         try expect(eql(u8, input.items, "START'WORLDX''$HELLO'END"));
     }
     {
-        const did_something = try replaceInArraylist(allocator, &input, &search, "WORLDX");
+        const did_something = try replaceInArraylist(allocator, &input, &search_s, "WORLDX");
         try expect(did_something);
         try expect(eql(u8, input.items, "START'WORLDX''WORLDX'END"));
     }
@@ -220,17 +219,17 @@ test "replace1c" {
     defer input.deinit(allocator);
     try input.appendSlice(allocator, "START'${HELLO}''${HELLO}'END");
 
-    var search = try ArrayList(u8).initCapacity(allocator, 1024);
-    defer search.deinit(allocator);
-    try search.appendSlice(allocator, "${HELLO}");
+    var search_s = try ArrayList(u8).initCapacity(allocator, 1024);
+    defer search_s.deinit(allocator);
+    try search_s.appendSlice(allocator, "${HELLO}");
 
     {
-        const did_something = try replaceInArraylist(allocator, &input, &search, "WORLDX");
+        const did_something = try replaceInArraylist(allocator, &input, &search_s, "WORLDX");
         try expect(did_something);
         try expect(eql(u8, input.items, "START'WORLDX''${HELLO}'END"));
     }
     {
-        const did_something = try replaceInArraylist(allocator, &input, &search, "WORLDX");
+        const did_something = try replaceInArraylist(allocator, &input, &search_s, "WORLDX");
         try expect(did_something);
         try expect(eql(u8, input.items, "START'WORLDX''WORLDX'END"));
     }
@@ -243,13 +242,11 @@ test "replace2" {
     defer input.deinit(allocator);
     try input.appendSlice(allocator, "START'$HELLO'END");
 
-    var search = try ArrayList(u8).initCapacity(allocator, 1024);
-    defer search.deinit(allocator);
-    try search.appendSlice(allocator, "$HELLO");
+    var search_s = try ArrayList(u8).initCapacity(allocator, 1024);
+    defer search_s.deinit(allocator);
+    try search_s.appendSlice(allocator, "$HELLO");
 
-    const replace: []const u8 = "WORd";
-
-    const did_something = try replaceInArraylist(allocator, &input, &search, replace);
+    const did_something = try replaceInArraylist(allocator, &input, &search_s, "WORd");
     try expect(did_something);
     try expect(eql(u8, input.items, "START'WORd'END"));
 }
@@ -261,13 +258,13 @@ test "replace3" {
     defer input.deinit(allocator);
     try input.appendSlice(allocator, "START'$HELLO'END");
 
-    var search = try ArrayList(u8).initCapacity(allocator, 1024);
-    defer search.deinit(allocator);
-    try search.appendSlice(allocator, "$HELLO");
+    var search_s = try ArrayList(u8).initCapacity(allocator, 1024);
+    defer search_s.deinit(allocator);
+    try search_s.appendSlice(allocator, "$HELLO");
 
     const replace: []const u8 = "A New World Order";
 
-    const did_something = try replaceInArraylist(allocator, &input, &search, replace);
+    const did_something = try replaceInArraylist(allocator, &input, &search_s, replace);
     try expect(did_something);
     try expect(eql(u8, input.items, "START'A New World Order'END"));
 }
