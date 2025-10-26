@@ -1,15 +1,16 @@
 const std = @import("std");
 const File = std.fs.File;
 const Writer = std.Io.Writer;
+const process = std.process;
+const ArrayList = std.ArrayList;
+const Allocator = std.mem.Allocator;
+const ArenaAllocator = std.heap.ArenaAllocator;
 const memcpy = std.mem.copyForwards;
 const eql = std.mem.eql;
 const indexOf = std.mem.indexOf;
 const print = std.debug.print;
 const expect = std.testing.expect;
-const process = std.process;
-const ArrayList = std.ArrayList;
-const Allocator = std.mem.Allocator;
-const ArenaAllocator = std.heap.ArenaAllocator;
+const parseInt = std.fmt.parseInt;
 
 const BUFFER_SIZE = 1024;
 
@@ -38,26 +39,31 @@ pub fn main() !void {
 
     var arg_verbose: u8 = 0;
     var arg_prefix: u8 = '$';
+    var arg_buffer_size: usize = BUFFER_SIZE;
     while (args.next()) |arg| {
         if (eql(u8, arg, "-h") or eql(u8, arg, "--help")) {
             try printHelp(stdout);
             return;
         } else if (eql(u8, arg, "-v") or eql(u8, arg, "--verbose")) {
             arg_verbose = 1;
-        } else if (eql(u8, arg, "-c")) {
+        } else if (eql(u8, arg, "-c") or eql(u8, arg, "--prefix")) {
             if (args.next()) |char| {
                 if (char.len == 1)
                     arg_prefix = char[0];
             }
+        } else if (eql(u8, arg, "-b") or eql(u8, arg, "--buffer")) {
+            if (args.next()) |char| {
+                arg_buffer_size = try parseInt(usize, char, 10);
+            }
         }
     }
 
-    const input_b = try allocator.alloc(u8, 1024);
+    const input_b = try allocator.alloc(u8, arg_buffer_size);
     defer allocator.free(input_b);
 
     const input_l = try stdin.readSliceShort(input_b);
 
-    var input = try ArrayList(u8).initCapacity(allocator, 1024);
+    var input = try ArrayList(u8).initCapacity(allocator, arg_buffer_size);
     defer input.deinit(allocator);
     try input.appendSlice(allocator, input_b[0..input_l]);
 
@@ -70,7 +76,7 @@ pub fn main() !void {
     while (env_it.next()) |env_var| {
         if (arg_prefix == '$') {
             {
-                var search_s = try ArrayList(u8).initCapacity(allocator, 1024);
+                var search_s = try ArrayList(u8).initCapacity(allocator, arg_buffer_size);
                 defer search_s.deinit(allocator);
                 try search_s.append(allocator, arg_prefix);
                 try search_s.appendSlice(allocator, env_var.key_ptr.*);
@@ -86,7 +92,7 @@ pub fn main() !void {
             }
 
             {
-                var search_s = try ArrayList(u8).initCapacity(allocator, 1024);
+                var search_s = try ArrayList(u8).initCapacity(allocator, arg_buffer_size);
                 defer search_s.deinit(allocator);
                 try search_s.append(allocator, arg_prefix);
                 try search_s.append(allocator, '{');
@@ -103,7 +109,7 @@ pub fn main() !void {
                 }
             }
         } else {
-            var search_s = try ArrayList(u8).initCapacity(allocator, 1024);
+            var search_s = try ArrayList(u8).initCapacity(allocator, arg_buffer_size);
             defer search_s.deinit(allocator);
             try search_s.append(allocator, arg_prefix);
             try search_s.appendSlice(allocator, env_var.key_ptr.*);
@@ -146,11 +152,13 @@ fn replaceInArraylist(allocator: Allocator, input: *ArrayList(u8), search: *Arra
 
 fn printHelp(stdout: *Writer) !void {
     const help =
-        \\Usage: ripenv [-h|--help] [-v] < input_template > output_file
+        \\Usage: ripenv <options> < input_template > output_file
         \\
         \\Options:
-        \\-h, --help           Print this help.
-        \\-v, --verbose        Verbose output.
+        \\-h, --help              Print this help.
+        \\-v, --verbose           Verbose output.
+        \\-c, --prefix <char>     Prefix (default: '$')
+        \\-b, --buffer <size>     Buffer Size (default: 1024 bytes)
     ;
     try stdout.print(help ++ "\n", .{});
     try stdout.flush();
