@@ -11,21 +11,26 @@ const ArrayList = std.ArrayList;
 const Allocator = std.mem.Allocator;
 const ArenaAllocator = std.heap.ArenaAllocator;
 
+const BUFFER_SIZE = 1024;
+
 pub fn main() !void {
     var arena = ArenaAllocator.init(std.heap.page_allocator);
     defer arena.deinit();
     const allocator = arena.allocator();
 
-    var stdin_buffer: [1024]u8 = undefined;
-    var stdin_reader = File.stdin().reader(&stdin_buffer);
+    const stdin_buffer = try allocator.alloc(u8, BUFFER_SIZE);
+    defer allocator.free(stdin_buffer);
+    var stdin_reader = File.stdin().reader(stdin_buffer);
     const stdin = &stdin_reader.interface;
 
-    var stdout_buffer: [1024]u8 = undefined;
-    var stdout_writer = File.stdout().writer(&stdout_buffer);
+    const stdout_buffer = try allocator.alloc(u8, BUFFER_SIZE);
+    defer allocator.free(stdout_buffer);
+    var stdout_writer = File.stdout().writer(stdout_buffer);
     const stdout = &stdout_writer.interface;
 
-    var stderr_buffer: [1024]u8 = undefined;
-    var stderr_writer = File.stderr().writer(&stderr_buffer);
+    const stderr_buffer = try allocator.alloc(u8, BUFFER_SIZE);
+    defer allocator.free(stderr_buffer);
+    var stderr_writer = File.stderr().writer(stderr_buffer);
     const stderr = &stderr_writer.interface;
 
     var args = process.args();
