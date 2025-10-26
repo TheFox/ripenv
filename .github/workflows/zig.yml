@@ -39,7 +39,7 @@ jobs:
         run: ./zig-out/bin/ripenv < tests/test1.txt
 
       - name: Test Prefix
-        run: ./zig-out/bin/ripenv -c % < tests/test2.txt
+        run: ./zig-out/bin/ripenv -c % < tests/test1.txt
 
       - name: Test Buffer Size
         run: ./zig-out/bin/ripenv -b 4096 < tests/test1.txt
