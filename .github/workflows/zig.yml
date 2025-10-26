@@ -32,9 +32,6 @@ jobs:
       - name: Build
         run: zig build --release -Dci=true
 
-      - name: env vars
-        run: env
-
       - name: Check help
         run: ./zig-out/bin/ripenv --help
 
