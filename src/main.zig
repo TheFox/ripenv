@@ -80,6 +80,7 @@ pub fn main() !void {
                     did_something = try replaceInArraylist(allocator, &input, &search_s, env_var.value_ptr.*);
                     if (arg_verbose >= 1 and did_something) {
                         try stderr.print("found A: '{s}'\n", .{search_s.items});
+                        try stderr.flush();
                     }
                 }
             }
@@ -97,6 +98,7 @@ pub fn main() !void {
                     did_something = try replaceInArraylist(allocator, &input, &search_s, env_var.value_ptr.*);
                     if (arg_verbose >= 1 and did_something) {
                         try stderr.print("found B: '{s}'\n", .{search_s.items});
+                        try stderr.flush();
                     }
                 }
             }
@@ -112,12 +114,14 @@ pub fn main() !void {
                 did_something = try replaceInArraylist(allocator, &input, &search_s, env_var.value_ptr.*);
                 if (arg_verbose >= 1 and did_something) {
                     try stderr.print("found C: '{s}'\n", .{search_s.items});
+                    try stderr.flush();
                 }
             }
         }
     }
 
     try stdout.writeAll(input.items);
+    try stdout.flush();
 }
 
 fn replaceInArraylist(allocator: Allocator, input: *ArrayList(u8), search: *ArrayList(u8), replace: []const u8) !bool {
