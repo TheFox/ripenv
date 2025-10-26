@@ -128,15 +128,15 @@ fn replaceInArraylist(allocator: Allocator, input: *ArrayList(u8), search: *Arra
     const pos = indexOf(u8, input.items, search.items) orelse return false;
 
     if (search.items.len == replace.len) {
-        // '$HELLO' replaced by 'WORLDX'
+        // '$HELLO' (6) replaced by 'WORLDX' (6)
         input.replaceRangeAssumeCapacity(pos, search.items.len, replace);
     } else if (search.items.len > replace.len) {
-        // '$HELLO' replaced by 'WORD'
+        // '$HELLO' (6) replaced by 'WORD' (4)
         const diff: usize = search.items.len - replace.len;
         try input.replaceRange(allocator, pos, replace.len, replace);
         input.replaceRangeAssumeCapacity(pos + replace.len, diff, &.{});
     } else {
-        // '$HELLO' replaced by 'HELLO WORLD'
+        // '$HELLO' (6) replaced by 'HELLO WORLD' (11)
         const diff: usize = replace.len - search.items.len;
         _ = try input.addManyAt(allocator, pos + search.items.len, diff);
         try input.replaceRange(allocator, pos, replace.len, replace);
@@ -156,11 +156,6 @@ fn printHelp(stdout: *Writer) !void {
     try stdout.flush();
 }
 
-test "strings" {
-    const john = "John";
-    print("john={s} len={} type={}\n", .{ john, john.len, @TypeOf(john) });
-}
-
 test "strInStr" {
     const haystack = "hello world";
     const needle = "world";
@@ -169,82 +164,102 @@ test "strInStr" {
         try expect(result == 6);
 }
 
-test "replaceInArraylist1a" {
-    var input = ArrayList(u8).init(std.heap.page_allocator);
-    defer input.deinit();
-    try input.appendSlice("START'$HELLO'END");
+test "replace1a" {
+    const allocator = std.heap.page_allocator;
 
-    var search = ArrayList(u8).init(std.heap.page_allocator);
-    defer search.deinit();
-    try search.appendSlice("$HELLO");
+    var input = try ArrayList(u8).initCapacity(allocator, 1024);
+    defer input.deinit(allocator);
+    try input.appendSlice(allocator, "START'$HELLO'END");
+
+    var search = try ArrayList(u8).initCapacity(allocator, 1024);
+    defer search.deinit(allocator);
+    try search.appendSlice(allocator, "$HELLO");
 
     const replace: []const u8 = "WORLDX";
 
-    const did_something = try replaceInArraylist(&input, &search, replace);
+    const did_something = try replaceInArraylist(allocator, &input, &search, replace);
     try expect(did_something);
     try expect(eql(u8, input.items, "START'WORLDX'END"));
 }
 
-test "replaceInArraylist1b" {
-    var input = ArrayList(u8).init(std.heap.page_allocator);
-    defer input.deinit();
-    try input.appendSlice("START'$HELLO''$HELLO'END");
+test "replace1b" {
+    const allocator = std.heap.page_allocator;
 
-    var search = ArrayList(u8).init(std.heap.page_allocator);
-    defer search.deinit();
-    try search.appendSlice("$HELLO");
+    var input = try ArrayList(u8).initCapacity(allocator, 1024);
+    defer input.deinit(allocator);
+    try input.appendSlice(allocator, "START'$HELLO''$HELLO'END");
 
-    const replace: []const u8 = "WORLDX";
+    var search = try ArrayList(u8).initCapacity(allocator, 1024);
+    defer search.deinit(allocator);
+    try search.appendSlice(allocator, "$HELLO");
 
-    const did_something = try replaceInArraylist(&input, &search, replace);
-    try expect(did_something);
-    try expect(eql(u8, input.items, "START'WORLDX''WORLDX'END"));
+    {
+        const did_something = try replaceInArraylist(allocator, &input, &search, "WORLDX");
+        try expect(did_something);
+        try expect(eql(u8, input.items, "START'WORLDX''$HELLO'END"));
+    }
+    {
+        const did_something = try replaceInArraylist(allocator, &input, &search, "WORLDX");
+        try expect(did_something);
+        try expect(eql(u8, input.items, "START'WORLDX''WORLDX'END"));
+    }
 }
 
-test "replaceInArraylist1c" {
-    var input = ArrayList(u8).init(std.heap.page_allocator);
-    defer input.deinit();
-    try input.appendSlice("START'${HELLO}''${HELLO}'END");
+test "replace1c" {
+    const allocator = std.heap.page_allocator;
 
-    var search = ArrayList(u8).init(std.heap.page_allocator);
-    defer search.deinit();
-    try search.appendSlice("${HELLO}");
+    var input = try ArrayList(u8).initCapacity(allocator, 1024);
+    defer input.deinit(allocator);
+    try input.appendSlice(allocator, "START'${HELLO}''${HELLO}'END");
 
-    const replace: []const u8 = "WORLDX";
+    var search = try ArrayList(u8).initCapacity(allocator, 1024);
+    defer search.deinit(allocator);
+    try search.appendSlice(allocator, "${HELLO}");
 
-    const did_something = try replaceInArraylist(&input, &search, replace);
-    try expect(did_something);
-    try expect(eql(u8, input.items, "START'WORLDX''WORLDX'END"));
+    {
+        const did_something = try replaceInArraylist(allocator, &input, &search, "WORLDX");
+        try expect(did_something);
+        try expect(eql(u8, input.items, "START'WORLDX''${HELLO}'END"));
+    }
+    {
+        const did_something = try replaceInArraylist(allocator, &input, &search, "WORLDX");
+        try expect(did_something);
+        try expect(eql(u8, input.items, "START'WORLDX''WORLDX'END"));
+    }
 }
 
-test "replaceInArraylist2" {
-    var input = ArrayList(u8).init(std.heap.page_allocator);
-    defer input.deinit();
-    try input.appendSlice("START'$HELLO'END");
+test "replace2" {
+    const allocator = std.heap.page_allocator;
 
-    var search = ArrayList(u8).init(std.heap.page_allocator);
-    defer search.deinit();
-    try search.appendSlice("$HELLO");
+    var input = try ArrayList(u8).initCapacity(allocator, 1024);
+    defer input.deinit(allocator);
+    try input.appendSlice(allocator, "START'$HELLO'END");
+
+    var search = try ArrayList(u8).initCapacity(allocator, 1024);
+    defer search.deinit(allocator);
+    try search.appendSlice(allocator, "$HELLO");
 
     const replace: []const u8 = "WORd";
 
-    const did_something = try replaceInArraylist(&input, &search, replace);
+    const did_something = try replaceInArraylist(allocator, &input, &search, replace);
     try expect(did_something);
     try expect(eql(u8, input.items, "START'WORd'END"));
 }
 
-test "replaceInArraylist3" {
-    var input = ArrayList(u8).init(std.heap.page_allocator);
-    defer input.deinit();
-    try input.appendSlice("START'$HELLO'END");
+test "replace3" {
+    const allocator = std.heap.page_allocator;
 
-    var search = ArrayList(u8).init(std.heap.page_allocator);
-    defer search.deinit();
-    try search.appendSlice("$HELLO");
+    var input = try ArrayList(u8).initCapacity(allocator, 1024);
+    defer input.deinit(allocator);
+    try input.appendSlice(allocator, "START'$HELLO'END");
+
+    var search = try ArrayList(u8).initCapacity(allocator, 1024);
+    defer search.deinit(allocator);
+    try search.appendSlice(allocator, "$HELLO");
 
     const replace: []const u8 = "A New World Order";
 
-    const did_something = try replaceInArraylist(&input, &search, replace);
+    const did_something = try replaceInArraylist(allocator, &input, &search, replace);
     try expect(did_something);
     try expect(eql(u8, input.items, "START'A New World Order'END"));
 }
