@@ -12,6 +12,7 @@ jobs:
         zig-version:
           - '0.15.0'
           - '0.15.1'
+          - '0.15.2'
 
     steps:
       - name: Checkout repository
@@ -33,3 +34,6 @@ jobs:
 
       - name: Check help
         run: ./zig-out/bin/ripenv --help
+
+      - name: Test1
+        run: ./zig-out/bin/ripenv < tests/test1.txt
