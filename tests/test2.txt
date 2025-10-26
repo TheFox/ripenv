@@ -1,2 +1,2 @@
-TERM: %TERM%
+HOME: %HOME%
 END
