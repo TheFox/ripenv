@@ -1,6 +1,8 @@
+const config = @import("config");
 const std = @import("std");
 const File = std.fs.File;
 const Writer = std.Io.Writer;
+const Reader = std.Io.Reader;
 const process = std.process;
 const ArrayList = std.ArrayList;
 const Allocator = std.mem.Allocator;
@@ -57,12 +59,41 @@ pub fn main() !void {
         }
     }
 
-    const input_b = try allocator.alloc(u8, arg_buffer_size);
+    const mainFn = if (config.use_replace)
+        mainReplace
+    else
+        mainArrayList;
+
+    try mainFn(.{
+        .allocator = allocator,
+        .stdin = stdin,
+        .stdout = stdout,
+        .stderr = stderr,
+        .verbose = arg_verbose,
+        .prefix = arg_prefix,
+        .buffer_size = arg_buffer_size,
+    });
+}
+
+fn mainReplace(options: MainOptions) !void {
+    _ = options;
+}
+
+fn mainArrayList(options: MainOptions) !void {
+    const allocator = options.allocator;
+    const stdin = options.stdin;
+    const stdout = options.stdout;
+    const stderr = options.stderr;
+    const verbose = options.verbose;
+    const prefix = options.prefix;
+    const buffer_size = options.buffer_size;
+
+    const input_b = try allocator.alloc(u8, buffer_size);
     defer allocator.free(input_b);
 
     const input_l = try stdin.readSliceShort(input_b);
 
-    var input = try ArrayList(u8).initCapacity(allocator, arg_buffer_size);
+    var input = try ArrayList(u8).initCapacity(allocator, buffer_size);
     defer input.deinit(allocator);
     try input.appendSlice(allocator, input_b[0..input_l]);
 
@@ -76,17 +107,17 @@ pub fn main() !void {
         const env_key = env_var.key_ptr.*;
         const env_val = env_var.value_ptr.*;
 
-        if (arg_prefix == '$') {
+        if (prefix == '$') {
             {
-                var search_s = try ArrayList(u8).initCapacity(allocator, arg_buffer_size);
+                var search_s = try ArrayList(u8).initCapacity(allocator, buffer_size);
                 defer search_s.deinit(allocator);
-                try search_s.append(allocator, arg_prefix);
+                try search_s.append(allocator, prefix);
                 try search_s.appendSlice(allocator, env_key);
 
                 var did_something = true;
                 while (did_something) {
                     did_something = try replaceInArraylist(allocator, &input, &search_s, env_val);
-                    if (arg_verbose >= 1 and did_something) {
+                    if (verbose >= 1 and did_something) {
                         try stderr.print("found A: '{s}'\n", .{search_s.items});
                         try stderr.flush();
                     }
@@ -94,9 +125,9 @@ pub fn main() !void {
             }
 
             {
-                var search_s = try ArrayList(u8).initCapacity(allocator, arg_buffer_size);
+                var search_s = try ArrayList(u8).initCapacity(allocator, buffer_size);
                 defer search_s.deinit(allocator);
-                try search_s.append(allocator, arg_prefix);
+                try search_s.append(allocator, prefix);
                 try search_s.append(allocator, '{');
                 try search_s.appendSlice(allocator, env_key);
                 try search_s.append(allocator, '}');
@@ -104,23 +135,23 @@ pub fn main() !void {
                 var did_something = true;
                 while (did_something) {
                     did_something = try replaceInArraylist(allocator, &input, &search_s, env_val);
-                    if (arg_verbose >= 1 and did_something) {
+                    if (verbose >= 1 and did_something) {
                         try stderr.print("found B: '{s}'\n", .{search_s.items});
                         try stderr.flush();
                     }
                 }
             }
         } else {
-            var search_s = try ArrayList(u8).initCapacity(allocator, arg_buffer_size);
+            var search_s = try ArrayList(u8).initCapacity(allocator, buffer_size);
             defer search_s.deinit(allocator);
-            try search_s.append(allocator, arg_prefix);
+            try search_s.append(allocator, prefix);
             try search_s.appendSlice(allocator, env_key);
-            try search_s.append(allocator, arg_prefix);
+            try search_s.append(allocator, prefix);
 
             var did_something = true;
             while (did_something) {
                 did_something = try replaceInArraylist(allocator, &input, &search_s, env_val);
-                if (arg_verbose >= 1 and did_something) {
+                if (verbose >= 1 and did_something) {
                     try stderr.print("found C: '{s}'\n", .{search_s.items});
                     try stderr.flush();
                 }
@@ -164,6 +195,16 @@ fn printHelp(stdout: *Writer) !void {
     try stdout.print(help ++ "\n", .{});
     try stdout.flush();
 }
+
+const MainOptions = struct {
+    allocator: Allocator,
+    stdin: *Reader,
+    stdout: *Writer,
+    stderr: *Writer,
+    verbose: u8 = 0,
+    prefix: u8 = '$',
+    buffer_size: usize = BUFFER_SIZE,
+};
 
 test "strInStr" {
     const haystack = "hello world";

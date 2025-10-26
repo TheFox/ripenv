@@ -1,6 +1,6 @@
 .{
     .name = .ripenv,
-    .version = "0.1.0-dev.5",
+    .version = "0.1.0-dev.6",
     .fingerprint = 0x431232298b103f0,
     .minimum_zig_version = "0.15.0",
     .dependencies = .{},

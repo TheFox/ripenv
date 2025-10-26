@@ -9,19 +9,24 @@ pub fn build(b: *std.Build) void {
         .major = 0,
         .minor = 1,
         .patch = 0,
-        .pre = "dev.5",
+        .pre = "dev.6",
     };
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{
         .preferred_optimize_mode = .ReleaseSmall,
     });
     const is_ci = b.option(bool, "ci", "Enable CI mode") orelse false;
+    const use_replace = b.option(bool, "use-replace", "Use replace() instead of ArrayList") orelse false;
+
+    const options = b.addOptions();
+    options.addOption(bool, "use_replace", use_replace);
 
     print("target arch: {s}\n", .{@tagName(target.result.cpu.arch)});
     print("target cpu: {s}\n", .{target.result.cpu.model.name});
     print("target os: {s}\n", .{@tagName(target.result.os.tag)});
     print("optimize: {s}\n", .{@tagName(optimize)});
     print("CI: {any}\n", .{is_ci});
+    print("use_replace: {any}\n", .{use_replace});
 
     var target_name: []u8 = undefined;
     if (is_ci) {
@@ -62,7 +67,7 @@ pub fn build(b: *std.Build) void {
         .version = version,
         .root_module = exe_mod,
     });
-
+    exe.root_module.addOptions("config", options);
     b.installArtifact(exe);
 
     const run_cmd = b.addRunArtifact(exe);
