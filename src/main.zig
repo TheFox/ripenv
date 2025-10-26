@@ -12,6 +12,10 @@ const indexOf = std.mem.indexOf;
 const print = std.debug.print;
 const expect = std.testing.expect;
 const parseInt = std.fmt.parseInt;
+const copy = std.mem.copyForwards;
+const replacementSize = std.mem.replacementSize;
+const replace = std.mem.replace;
+const zeroes = std.mem.zeroes;
 
 const BUFFER_SIZE = 1024;
 
@@ -76,7 +80,70 @@ pub fn main() !void {
 }
 
 fn mainReplace(options: MainOptions) !void {
-    _ = options;
+    const allocator = options.allocator;
+    const stdin = options.stdin;
+    const stdout = options.stdout;
+    const stderr = options.stderr;
+    const verbose = options.verbose;
+    const prefix = options.prefix;
+    const buffer_size = options.buffer_size;
+
+    const input = try allocator.alloc(u8, buffer_size);
+    defer allocator.free(input);
+
+    const input_l = try stdin.readSliceShort(input);
+    try stderr.print("input_l: {d}\n", .{input_l});
+    try stderr.flush();
+
+    var outputs = try ArrayList([]u8).initCapacity(allocator, 1024);
+
+    const env_map = try allocator.create(process.EnvMap);
+    defer env_map.deinit();
+    env_map.* = try process.getEnvMap(allocator);
+
+    // Iterate over env vars.
+    var env_it = env_map.iterator();
+    while (env_it.next()) |env_var| {
+        const env_key = env_var.key_ptr.*;
+        const env_val = env_var.value_ptr.*;
+
+        print("env: '{s}'='{s}'\n", .{ env_key, env_val });
+
+        if (prefix == '$') {
+            var search_s = try ArrayList(u8).initCapacity(allocator, buffer_size);
+            defer search_s.deinit(allocator);
+            try search_s.append(allocator, prefix);
+            try search_s.appendSlice(allocator, env_key);
+
+            const needed = replacementSize(u8, input, search_s.items, env_val);
+            if (verbose >= 1) {
+                try stderr.print("-> needed: {d}\n", .{needed});
+                try stderr.flush();
+            }
+            // if (needed > buffer_size) {
+            //     @panic("Needed replacement size is bigger then buffer size.");
+            // }
+
+            const output = try allocator.alloc(u8, needed);
+            // defer allocator.free(output);
+            try outputs.append(allocator, output);
+
+            const replaced = replace(u8, input, search_s.items, env_val, output);
+            if (verbose >= 1) {
+                try stderr.print("-> replaced: {d}\n", .{replaced});
+                try stderr.flush();
+            }
+
+            copy(u8, input, output);
+        } else {}
+    }
+
+    for (outputs.items) |output| {
+        allocator.free(output);
+    }
+
+    try stdout.writeAll(input);
+    try stdout.flush();
 }
 
 fn mainArrayList(options: MainOptions) !void {
@@ -303,9 +370,7 @@ test "replace3" {
     defer search_s.deinit(allocator);
     try search_s.appendSlice(allocator, "$HELLO");
 
-    const replace: []const u8 = "A New World Order";
-
-    const did_something = try replaceInArraylist(allocator, &input, &search_s, replace);
+    const did_something = try replaceInArraylist(allocator, &input, &search_s, "A New World Order");
     try expect(did_something);
     try expect(eql(u8, input.items, "START'A New World Order'END"));
 }
